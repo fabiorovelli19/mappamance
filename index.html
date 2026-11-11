@@ -1,0 +1,993 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mance Oca di Pulcinella</title>
+<meta name="theme-color" content="#16201A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..100,400..800&family=JetBrains+Mono:wght@500;700&display=swap">
+<script src="jspdf.umd.min.js"></script>
+<script src="civici.js"></script>
+<style>
+/* Layout: app da tasca per il fattorino. Barra in alto con il totale della settimana, schede in basso, contenuto a colonna singola. */
+:root{
+  --paper:#F5F7F4; --card:#FFFFFF; --ink:#16201A; --muted:#5B6860; --line:#DCE2DD;
+  --tomato:#C93A26; --tomato-soft:#F7E2DD; --basil:#2B7A4B; --basil-soft:#E1EFE6;
+  --font-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --font-body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#111613; --card:#19201C; --ink:#E8EEEA; --muted:#97A39B; --line:#2A342E;
+  --tomato:#EE6650; --tomato-soft:#3A1F1A; --basil:#5BC487; --basil-soft:#1C3326; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#111613; --card:#19201C; --ink:#E8EEEA; --muted:#97A39B; --line:#2A342E;
+  --tomato:#EE6650; --tomato-soft:#3A1F1A; --basil:#5BC487; --basil-soft:#1C3326; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--ink)}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 120px}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--font-display);font-stretch:75%;margin:0;text-wrap:balance;letter-spacing:.005em}
+h2{font-size:1.5rem;font-weight:800}
+h3{font-size:1.05rem;font-weight:700}
+.label{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--tomato);outline-offset:2px}
+
+/* Barra in alto */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ink);color:var(--paper);margin:0 calc(-1 * max(16px,env(safe-area-inset-left,0px))) 0 calc(-1 * max(16px,env(safe-area-inset-right,0px)));padding:12px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px))}
+.top-in{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.brand{font-family:var(--font-display);font-stretch:62%;font-weight:800;font-size:1.35rem;line-height:1;text-transform:uppercase;letter-spacing:.02em}
+.brand small{display:block;font-stretch:100%;font-weight:500;font-size:.7rem;letter-spacing:.1em;opacity:.7;margin-top:4px}
+.wk{text-align:right}
+.wk .num{font-size:1.5rem;font-weight:700;line-height:1}
+.wk .label{color:inherit;opacity:.7;display:block;margin-bottom:3px}
+
+.status{margin-top:12px;padding:10px 12px;border-radius:var(--r);background:var(--tomato-soft);color:var(--ink);font-size:.88rem}
+
+/* Schede in basso */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
+.tab{background:none;border:0;padding:8px 2px;border-radius:10px;font-size:.74rem;font-weight:600;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px}
+.tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab[aria-selected="true"]{color:var(--tomato);background:var(--tomato-soft)}
+
+section.view{display:flex;flex-direction:column;gap:18px;padding-top:18px}
+
+/* Form */
+.form{display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:6px;position:relative;min-width:0}
+.row{display:grid;grid-template-columns:1fr 92px;gap:10px}
+input[type=text],input[type=date],input[type=number],select,input[type=search]{width:100%;padding:12px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);font-size:16px;min-width:0}
+input:focus,select:focus{border-color:var(--ink);outline:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:10px 14px;font-weight:600;min-width:58px;text-align:center}
+.chip.amount{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip.zero[aria-pressed="true"]{background:var(--tomato);border-color:var(--tomato);color:#fff}
+.chip small{font-weight:500;opacity:.75}
+.other-amt{width:110px!important;padding:9px 12px!important;border-radius:999px!important;font-family:var(--font-num)}
+.save{border:0;background:var(--tomato);color:#fff;border-radius:14px;padding:16px;font-family:var(--font-display);font-stretch:75%;font-weight:800;font-size:1.25rem;letter-spacing:.02em}
+.save:disabled{opacity:.45}
+.hint{font-size:.82rem;color:var(--muted)}
+.sugg{position:absolute;top:100%;left:0;right:0;z-index:4;margin-top:4px;background:var(--card);border:1.5px solid var(--ink);border-radius:10px;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.14)}
+.sugg button{display:flex;width:100%;justify-content:space-between;gap:10px;text-align:left;padding:11px 12px;border:0;background:none;border-bottom:1px solid var(--line)}
+.sugg button:last-child{border-bottom:0}
+.sugg .s-main{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.sugg .s-sub{color:var(--muted);font-size:.82rem;white-space:nowrap}
+.more{background:none;border:0;padding:0;color:var(--muted);font-size:.85rem;text-decoration:underline;text-underline-offset:3px;align-self:flex-start}
+.today{border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}
+
+/* Liste */
+.list{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.item{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:11px 0;border-bottom:1px solid var(--line);align-items:center}
+.item .t{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.item .s{grid-column:1;color:var(--muted);font-size:.84rem;min-width:0}
+.item .a{grid-row:1 / span 2;grid-column:2;font-family:var(--font-num);font-weight:700;font-size:1.05rem;text-align:right}
+.a.zero{color:var(--tomato)}
+.tag{display:inline-block;font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--basil-soft);color:var(--basil);vertical-align:1px;margin-left:6px}
+.tag.red{background:var(--tomato-soft);color:var(--tomato)}
+
+/* Riepiloghi */
+.period{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.period button{border:1.5px solid var(--line);background:var(--card);border-radius:10px;width:42px;height:42px;font-size:1.2rem}
+.period .pt{text-align:center;min-width:0}
+.period .pt h2{font-size:1.35rem}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.kpi{padding:12px 0 0;border-top:2px solid var(--ink)}
+.kpi .num{font-size:1.6rem;font-weight:700;display:block;line-height:1.1}
+.kpi.main .num{color:var(--basil)}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:92px 1fr 74px;gap:10px;align-items:center;font-size:.88rem}
+.bar .bl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .track{height:12px;background:var(--line);border-radius:3px;overflow:hidden}
+.bar .fill{height:100%;background:var(--basil);border-radius:3px}
+.bar .bv{text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:700}
+.bar.off{color:var(--muted)}
+.bar.off .bv{font-weight:500}
+.btn{border:1.5px solid var(--ink);background:var(--card);border-radius:12px;padding:12px 14px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.primary{background:var(--ink);color:var(--paper)}
+.btns{display:grid;grid-template-columns:1fr;gap:10px}
+.empty{padding:22px 16px;border:1.5px dashed var(--line);border-radius:var(--r);color:var(--muted);text-align:center;font-size:.92rem}
+
+/* Mappa schematica */
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1.5px solid var(--ink);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--card);padding:9px 4px;font-weight:600;font-size:.84rem}
+.seg button+button{border-left:1.5px solid var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.zmap{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,minmax(84px,auto));gap:6px;position:relative}
+.zone{border-radius:10px;padding:9px;display:flex;flex-direction:column;justify-content:space-between;gap:6px;border:1.5px solid transparent;text-align:left;min-width:0;background:var(--card)}
+.zone .zn{font-family:var(--font-display);font-stretch:70%;font-weight:700;font-size:.95rem;line-height:1.05;overflow-wrap:anywhere}
+.zone .zv{font-family:var(--font-num);font-weight:700;font-size:.95rem}
+.zone .zs{font-size:.72rem;opacity:.8}
+.zone.nodata{border:1.5px dashed var(--line);color:var(--muted)}
+.zone.nothing{background:repeating-linear-gradient(135deg,var(--tomato-soft) 0 7px,var(--card) 7px 14px);border-color:var(--tomato);color:var(--ink)}
+.zone.sel{outline:2.5px solid var(--ink);outline-offset:1px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.78rem;color:var(--muted);align-items:center}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+.compass{font-size:.72rem;color:var(--muted);display:flex;justify-content:space-between}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+
+/* Mappa */
+.mapbox{position:relative;border:1.5px solid var(--ink);border-radius:var(--r);overflow:hidden;height:min(62vh,480px);background:var(--paper)}
+.mapbox canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.zoom{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:40px;height:40px;border-radius:10px;border:1.5px solid var(--ink);background:var(--card);font-size:1.25rem;font-weight:700;line-height:1}
+.pin{position:absolute;left:50%;top:50%;width:30px;height:40px;margin:-40px 0 0 -15px;pointer-events:none}
+.geo{font-size:.86rem;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;min-height:1.4em}
+.geo.ok{color:var(--basil);font-weight:600}
+.geo.no{color:var(--muted)}
+.geo button{border:1.5px solid var(--ink);background:var(--card);border-radius:999px;padding:6px 12px;font-weight:600;font-size:.84rem}
+.picker{position:fixed;inset:0;z-index:20;background:var(--paper);display:flex;flex-direction:column;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.picker .mapbox{flex:1;height:auto;min-height:0}
+.picker-bot{display:grid;grid-template-columns:1fr 1.5fr;gap:10px}
+.credit{font-size:.72rem;color:var(--muted);margin:0}
+
+/* Toast */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:8;background:var(--ink);color:var(--paper);padding:11px 12px 11px 16px;border-radius:12px;display:flex;gap:14px;align-items:center;max-width:calc(100% - 32px);box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:.92rem}
+.toast button{background:none;border:0;color:var(--tomato);font-weight:800;padding:4px 6px}
+:root:not([data-theme="light"]) .toast button{color:#FF8A75}
+.confirm{display:flex;gap:8px;grid-column:1 / -1;margin-top:6px}
+.confirm button{flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--line);background:var(--card);font-weight:600}
+.confirm .del{background:var(--tomato);border-color:var(--tomato);color:#fff}
+.item.tap{cursor:pointer}
+.dayhead{display:flex;justify-content:space-between;align-items:baseline;padding-top:14px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+.install{width:100%;margin-top:12px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="top-in">
+      <div class="brand">Mance<small>All'Oca di Pulcinella</small></div>
+      <div class="wk"><span class="label">Questa settimana</span><span class="num" id="topWeek">0,00 €</span></div>
+    </div>
+  </header>
+  <div class="status" id="status" hidden></div>
+  <button type="button" class="btn primary install" id="installBtn" hidden>Installa sul telefono</button>
+
+  <!-- INSERISCI -->
+  <section class="view" id="v-add">
+    <form class="form" id="form" autocomplete="off">
+      <div class="field">
+        <label class="label" for="via">Via</label>
+        <input type="text" id="via" placeholder="es. Via Guido Reni" enterkeyhint="next">
+        <div class="sugg" id="sugg" hidden></div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="label" for="nome">Nome sul campanello</label>
+          <input type="text" id="nome" placeholder="facoltativo" enterkeyhint="next">
+        </div>
+        <div class="field">
+          <label class="label" for="civico">Civico</label>
+          <input type="text" id="civico" inputmode="text" placeholder="12" list="civList">
+          <datalist id="civList"></datalist>
+        </div>
+      </div>
+      <div class="geo no" id="geo"><span id="geoTxt"></span><button type="button" id="geoBtn" hidden>Mettilo sulla mappa</button></div>
+      <div class="field">
+        <label class="label" for="zona">Zona</label>
+        <select id="zona"></select>
+      </div>
+      <div class="field">
+        <span class="label">Mancia</span>
+        <div class="chips" id="amounts"></div>
+      </div>
+      <div class="field">
+        <span class="label" id="meteoLbl">Meteo di stasera</span>
+        <div class="chips" id="meteo"></div>
+      </div>
+      <button type="button" class="more" id="dateToggle">Data: oggi · cambia</button>
+      <div class="field" id="dateField" hidden>
+        <label class="label" for="data">Data della consegna</label>
+        <input type="date" id="data">
+      </div>
+      <button type="submit" class="save" id="saveBtn" disabled>Salva mancia</button>
+    </form>
+    <div class="today">
+      <div class="dayhead"><h3 id="todayTitle">Stasera</h3><span class="num" id="todayTot"></span></div>
+      <div class="list" id="todayList"></div>
+    </div>
+  </section>
+
+  <!-- SETTIMANA / MESE -->
+  <section class="view" id="v-sum" hidden>
+    <div class="seg" id="sumMode" style="grid-template-columns:repeat(2,1fr)">
+      <button type="button" data-m="week" aria-pressed="true">Settimana</button>
+      <button type="button" data-m="month" aria-pressed="false">Mese</button>
+    </div>
+    <div class="period">
+      <button type="button" id="prevP" aria-label="Periodo precedente">‹</button>
+      <div class="pt"><span class="label" id="pLabel">Settimana</span><h2 id="pTitle"></h2></div>
+      <button type="button" id="nextP" aria-label="Periodo successivo">›</button>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card"><h3 id="barsTitle">Giorno per giorno</h3><div class="bars" id="bars"></div></div>
+    <div class="card"><h3>Per zona</h3><div class="bars" id="zoneBars"></div></div>
+    <div class="card"><h3>Con che tempo</h3><div class="bars" id="meteoBars"></div><p class="hint" style="margin:0">Media della mancia per consegna, divisa per il meteo che hai segnato.</p></div>
+    <button type="button" class="btn primary" id="pdfBtn">Scarica il PDF di questo periodo</button>
+  </section>
+
+  <!-- ZONE -->
+  <section class="view" id="v-zone" hidden>
+    <div><h2>Dove si prende di più</h2><p class="hint" style="margin:4px 0 0">Ogni pallino è un indirizzo dove hai consegnato. Tocca un pallino o una zona.</p></div>
+    <div class="seg" id="zPeriod">
+      <button type="button" data-k="all" aria-pressed="true">Sempre</button>
+      <button type="button" data-k="month" aria-pressed="false">Questo mese</button>
+      <button type="button" data-k="week" aria-pressed="false">Settimana</button>
+    </div>
+    <div class="seg" id="zMetric">
+      <button type="button" data-k="avg" aria-pressed="true">Media</button>
+      <button type="button" data-k="tot" aria-pressed="false">Totale</button>
+      <button type="button" data-k="n" aria-pressed="false">Consegne</button>
+    </div>
+    <div class="mapbox" id="mapBox">
+      <canvas id="mapCanvas" aria-label="Mappa delle mance"></canvas>
+      <div class="zoom"><button type="button" id="zIn" aria-label="Ingrandisci">+</button><button type="button" id="zOut" aria-label="Rimpicciolisci">−</button><button type="button" id="zFit" aria-label="Vedi tutte le zone">⤢</button></div>
+    </div>
+    <div class="empty" id="mapMissing" hidden>La mappa non si è caricata. Ricarica la pagina.</div>
+    <div class="legend" id="legend"></div>
+    <p class="hint" id="mapNote" style="margin:0"></p>
+    <div class="card" id="mInfo" hidden></div>
+    <div class="card" id="zDetail"></div>
+    <p class="credit">Indirizzi e quartieri: Città di Torino, aperTO (CC BY 4.0), dati 2019. Gerbido e Città Giardino hanno confini indicativi.</p>
+    <div class="card">
+      <h3>Mappa vera su Google</h3>
+      <p class="hint" style="margin:0">Scarica gli indirizzi e importali in Google My Maps: Google trova da solo ogni civico e puoi colorare i punti per fascia di mancia. A fine settimana riscarichi il file e sostituisci il livello.</p>
+      <button type="button" class="btn" id="csvBtn">Scarica indirizzi per My Maps</button>
+    </div>
+  </section>
+
+  <!-- CLIENTI -->
+  <section class="view" id="v-cli" hidden>
+    <div><h2>Clienti</h2><p class="hint" style="margin:4px 0 0">Raggruppati per indirizzo. "Abituale" da 3 consegne in su.</p></div>
+    <input type="search" id="cliSearch" placeholder="Cerca via o nome">
+    <div class="seg" id="cliSort">
+      <button type="button" data-k="n" aria-pressed="true">Più visti</button>
+      <button type="button" data-k="avg" aria-pressed="false">Più generosi</button>
+      <button type="button" data-k="zero" aria-pressed="false">Mai mancia</button>
+    </div>
+    <div class="list" id="cliList"></div>
+  </section>
+
+  <!-- ELENCO -->
+  <section class="view" id="v-list" hidden>
+    <div><h2>Tutte le consegne</h2><p class="hint" style="margin:4px 0 0">Tocca una riga per eliminarla.</p></div>
+    <div id="allList"></div>
+    <div class="card">
+      <h3>Backup</h3>
+      <p class="hint" style="margin:0">Le mance restano salvate su questo telefono. Ogni tanto scarica un backup: se cambi telefono o cancelli i dati di Chrome, lo ricarichi da qui.</p>
+      <div class="btns"><button type="button" class="btn" id="bkOut">Scarica backup</button><label class="btn" for="bkIn">Ripristina da backup</label></div>
+      <input type="file" id="bkIn" accept=".json,application/json" hidden>
+      <p class="hint" id="bkInfo" style="margin:0"></p>
+    </div>
+  </section>
+</div>
+
+<nav class="tabs" aria-label="Sezioni">
+  <div class="tabs-in" role="tablist">
+    <button class="tab" role="tab" data-v="add" aria-selected="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Inserisci</button>
+    <button class="tab" role="tab" data-v="sum" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Riepilogo</button>
+    <button class="tab" role="tab" data-v="zone" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Mappa</button>
+    <button class="tab" role="tab" data-v="cli" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7M5 10v10h14V10"/></svg>Clienti</button>
+    <button class="tab" role="tab" data-v="list" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Elenco</button>
+  </div>
+</nav>
+<div class="picker" id="picker" hidden>
+  <div><h3>Dov'è questo indirizzo?</h3><p class="hint" style="margin:2px 0 0">Sposta la mappa finché la punta del segnaposto è sul portone.</p></div>
+  <div class="mapbox">
+    <canvas id="pickCanvas" aria-label="Mappa per scegliere la posizione"></canvas>
+    <svg class="pin" viewBox="0 0 30 40" aria-hidden="true"><path d="M15 39C15 39 28 24 28 14A13 13 0 0 0 2 14C2 24 15 39 15 39Z" fill="var(--tomato)" stroke="var(--card)" stroke-width="2"/><circle cx="15" cy="14" r="4.5" fill="var(--card)"/></svg>
+    <div class="zoom"><button type="button" id="pIn" aria-label="Ingrandisci">+</button><button type="button" id="pOut" aria-label="Rimpicciolisci">−</button></div>
+  </div>
+  <div class="picker-bot"><button type="button" class="btn" id="pickCancel">Annulla</button><button type="button" class="btn primary" id="pickOk">Metti qui</button></div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const ZONES = [
+  {id:"citta-giardino", nome:"Città Giardino", comune:"Torino", c:1, r:1},
+  {id:"san-paolo", nome:"San Paolo", comune:"Torino", c:2, r:1, w:2},
+  {id:"crocetta", nome:"Crocetta", comune:"Torino", c:4, r:1},
+  {id:"gerbido", nome:"Gerbido", comune:"Torino", c:1, r:2},
+  {id:"mirafiori-nord", nome:"Mirafiori Nord", comune:"Torino", c:2, r:2},
+  {id:"santa-rita", nome:"Santa Rita", comune:"Torino", c:3, r:2},
+  {id:"borgo-filadelfia", nome:"Borgo Filadelfia", comune:"Torino", c:4, r:2, h:2},
+  {id:"mirafiori-sud", nome:"Mirafiori Sud", comune:"Torino", c:2, r:3, w:2},
+  {id:"altro", nome:"Altra zona", comune:"Torino"}
+];
+const ZBY = Object.fromEntries(ZONES.map(z=>[z.id,z]));
+const AMOUNTS = [0,0.5,1,1.5,2,3,5];
+const METEO = [{id:"sereno",n:"Sereno"},{id:"nuvoloso",n:"Nuvoloso"},{id:"pioggia",n:"Pioggia"},{id:"neve",n:"Neve"},{id:"nebbia",n:"Nebbia"}];
+const MBY = Object.fromEntries(METEO.map(m=>[m.id,m.n]));
+const GIORNI = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+const GIORNI_L = ["lunedì","martedì","mercoledì","giovedì","venerdì","sabato","domenica"];
+const MESI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+
+const eur = n => (Math.round(n*100)/100).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse = s => { const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); };
+const mondayOf = d => { const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const wd=(x.getDay()+6)%7; x.setDate(x.getDate()-wd); return x; };
+const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const normVia = s => String(s||"").toLowerCase().replace(/\bc\.?\s?so\b/g,"corso").replace(/\bp\.?\s?za\b/g,"piazza").replace(/\bstr\.\s?/g,"strada ").replace(/[.,']/g," ").replace(/\s+/g," ").trim();
+const tidyVia = s => String(s||"").replace(/\s+/g," ").trim().replace(/^./,c=>c.toUpperCase());
+const addrKey = t => normVia(t.via)+"|"+String(t.civico||"").toLowerCase().replace(/\s+/g,"");
+
+/* ---------- dati della mappa: vie, civici e quartieri ---------- */
+const MP = window.MAPPA || null;
+const KX = 1e-5*111320*Math.cos(45.04*Math.PI/180), KY = 1e-5*110950;   // metri per unità dei dati
+const G = {streets:[], byName:new Map(), polys:[]};
+const PART = new Set(["di","del","della","dei","degli","delle","e"]);
+const titleVia = s => s.toLowerCase().split(" ").map((w,i)=> i>0&&PART.has(w) ? w : w.replace(/(^|')([a-zà-ù])/g,(m,a,b)=>a+b.toUpperCase())).join(" ");
+const normCiv = s => String(s||"").toLowerCase().replace(/scala/g,"sc").replace(/[\s\/.\-]/g,"");
+const lonlatToM = (lon,lat) => [(lon-MP.o[0])*1e5*KX, -(lat-MP.o[1])*1e5*KY];
+const mToLonLat = (x,y) => [Math.round((MP.o[0]+x/KX/1e5)*1e6)/1e6, Math.round((MP.o[1]-y/KY/1e5)*1e6)/1e6];
+if(MP){
+  for(const [name,civs,co,zs,ang] of MP.s){
+    const n=co.length/2, pts=new Float32Array(n*2); let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    for(let i=0;i<n;i++){ const x=co[2*i]*KX, y=-co[2*i+1]*KY; pts[2*i]=x; pts[2*i+1]=y; if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+    const cl=civs.split("|");
+    const s={name, label:titleVia(name), key:normVia(name), civs:cl, ckeys:cl.map(normCiv), pts, zs, ang:-ang*Math.PI/180, box:[x0,y0,x1,y1]};
+    G.streets.push(s); G.byName.set(s.key,s);
+  }
+  for(const q of MP.q){
+    const rings=q.r.map(r=>{ const a=new Float32Array(r.length); for(let i=0;i<r.length;i+=2){ a[i]=r[i]*KX; a[i+1]=-r[i+1]*KY; } return a; });
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9, big=rings[0];
+    for(const a of rings){ if(a.length>big.length) big=a; for(let i=0;i<a.length;i+=2){ if(a[i]<x0)x0=a[i]; if(a[i]>x1)x1=a[i]; if(a[i+1]<y0)y0=a[i+1]; if(a[i+1]>y1)y1=a[i+1]; } }
+    let sx=0, sy=0; for(let i=0;i<big.length;i+=2){ sx+=big[i]; sy+=big[i+1]; }
+    G.polys.push({z:q.z, n:q.n, rings, box:[x0,y0,x1,y1], c:[sx/(big.length/2), sy/(big.length/2)]});
+  }
+}
+function findStreet(text){
+  const key=normVia(text); if(!key || !MP) return null;
+  const ex=G.byName.get(key); if(ex) return ex;
+  const tok=key.split(" "); const cand=G.streets.filter(s=>tok.every(t=>s.key.includes(t)));
+  if(cand.length===1) return cand[0];
+  const end=cand.filter(s=>s.key.endsWith(" "+key)); return end.length===1 ? end[0] : null;
+}
+function findCivic(s, civ){
+  const k=normCiv(civ); if(!k) return null;
+  let i=s.ckeys.indexOf(k), exact=true;
+  if(i<0){
+    const num=parseInt(civ,10); if(isNaN(num)) return null; exact=false;
+    i=s.civs.findIndex(c=>parseInt(c,10)===num);
+    if(i<0){ let bd=21; s.civs.forEach((c,j)=>{ const m=parseInt(c,10); if(isNaN(m) || (m-num)%2) return; const d=Math.abs(m-num); if(d<bd){ bd=d; i=j; } }); }   // civico più vicino sullo stesso lato
+  }
+  if(i<0) return null;
+  const [lon,lat]=mToLonLat(s.pts[2*i], s.pts[2*i+1]);
+  return {lon, lat, zone:MP.zone[Number(s.zs[i])], exact, civ:s.civs[i]};
+}
+function inRings(x,y,rings){
+  let inside=false;
+  for(const r of rings) for(let i=0,j=r.length-2;i<r.length;j=i,i+=2){ const xi=r[i],yi=r[i+1],xj=r[j],yj=r[j+1]; if(((yi>y)!==(yj>y)) && (x<(xj-xi)*(y-yi)/(yj-yi)+xi)) inside=!inside; }
+  return inside;
+}
+function zoneAtM(x,y){ for(const p of G.polys) if(p.z && inRings(x,y,p.rings)) return p.z; return null; }
+function hexRgb(h){ h=h.replace("#",""); if(h.length===3) h=h.split("").map(c=>c+c).join(""); return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16)); }
+function mix(a,b,p){ const A=hexRgb(a), B=hexRgb(b), t=Math.max(0,Math.min(100,p))/100; return "rgb("+A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(",")+")"; }
+function palette(){ const cs=getComputedStyle(document.documentElement), g=n=>cs.getPropertyValue(n).trim(); return {paper:g("--paper"),card:g("--card"),ink:g("--ink"),muted:g("--muted"),line:g("--line"),tomato:g("--tomato"),tomatoSoft:g("--tomato-soft"),basil:g("--basil")}; }
+
+class MapView{
+  constructor(canvas, o){
+    this.c=canvas; this.o=o||{}; this.ctx=canvas.getContext("2d"); this.cx=0; this.cy=0; this.k=0.06;
+    this.markers=[]; this.zoneFill=null; this.zoneText=null; this.zoneSel=null; this.selKey=null; this.P=new Map(); this.raf=0; this.tap=null;
+    canvas.addEventListener("pointerdown",e=>this.down(e)); canvas.addEventListener("pointermove",e=>this.move(e));
+    ["pointerup","pointercancel"].forEach(t=>canvas.addEventListener(t,e=>this.up(e)));
+    canvas.addEventListener("wheel",e=>{ e.preventDefault(); const r=canvas.getBoundingClientRect(); this.zoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.25:0.8); },{passive:false});
+    if(window.ResizeObserver) new ResizeObserver(()=>this.draw()).observe(canvas);
+  }
+  size(){ return [this.c.clientWidth||320, this.c.clientHeight||320]; }
+  fit(x0,y0,x1,y1){ const [w,h]=this.size(); this.cx=(x0+x1)/2; this.cy=(y0+y1)/2; this.k=Math.max(0.03,Math.min(8,Math.min(w/(x1-x0),h/(y1-y0))*0.96)); this.draw(); }
+  fitZones(){ let b=[1e9,1e9,-1e9,-1e9]; for(const p of G.polys) if(p.z) b=[Math.min(b[0],p.box[0]),Math.min(b[1],p.box[1]),Math.max(b[2],p.box[2]),Math.max(b[3],p.box[3])]; this.fit(b[0],b[1],b[2],b[3]); }
+  zoomAt(sx,sy,f){ const [w,h]=this.size(), k2=Math.max(0.03,Math.min(8,this.k*f)); const wx=this.cx+(sx-w/2)/this.k, wy=this.cy+(sy-h/2)/this.k; this.k=k2; this.cx=wx-(sx-w/2)/k2; this.cy=wy-(sy-h/2)/k2; this.draw(); }
+  zoom(f){ const [w,h]=this.size(); this.zoomAt(w/2,h/2,f); }
+  down(e){ try{ this.c.setPointerCapture(e.pointerId); }catch(_){ } this.P.set(e.pointerId,{x:e.clientX,y:e.clientY}); if(this.P.size===1) this.tap={x:e.clientX,y:e.clientY,t:Date.now(),ok:true}; else if(this.tap) this.tap.ok=false; }
+  move(e){
+    const p=this.P.get(e.pointerId); if(!p) return; const dx=e.clientX-p.x, dy=e.clientY-p.y;
+    if(this.P.size===1){ this.cx-=dx/this.k; this.cy-=dy/this.k; if(this.tap && Math.hypot(e.clientX-this.tap.x,e.clientY-this.tap.y)>8) this.tap.ok=false; }
+    else if(this.P.size===2){
+      let o=null; for(const [id,q] of this.P) if(id!==e.pointerId) o=q;
+      const d0=Math.hypot(p.x-o.x,p.y-o.y), d1=Math.hypot(e.clientX-o.x,e.clientY-o.y), r=this.c.getBoundingClientRect();
+      if(d0>0) this.zoomAt((e.clientX+o.x)/2-r.left,(e.clientY+o.y)/2-r.top,d1/d0);
+      this.cx-=dx/2/this.k; this.cy-=dy/2/this.k;
+    }
+    p.x=e.clientX; p.y=e.clientY; this.draw();
+  }
+  up(e){
+    this.P.delete(e.pointerId);
+    if(this.tap && this.tap.ok && e.type==="pointerup" && Date.now()-this.tap.t<500){ const r=this.c.getBoundingClientRect(); this.onTap(e.clientX-r.left,e.clientY-r.top); }
+    if(!this.P.size) this.tap=null;
+  }
+  onTap(sx,sy){
+    const [w,h]=this.size(); let best=null, bd=22*22;
+    for(const m of this.markers){ const x=(m.x-this.cx)*this.k+w/2, y=(m.y-this.cy)*this.k+h/2, d=(x-sx)*(x-sx)+(y-sy)*(y-sy); if(d<bd){ bd=d; best=m; } }
+    if(best){ if(this.o.onMarker) this.o.onMarker(best.c); return; }
+    if(this.o.onZone) this.o.onZone(zoneAtM(this.cx+(sx-w/2)/this.k, this.cy+(sy-h/2)/this.k));
+  }
+  draw(){ if(this.raf) return; this.raf=requestAnimationFrame(()=>{ this.raf=0; this._draw(); }); }
+  _draw(){
+    const [w,h]=this.size(), dpr=Math.min(window.devicePixelRatio||1,2.5), c=this.c, ctx=this.ctx, k=this.k, pal=palette();
+    if(c.width!==Math.round(w*dpr) || c.height!==Math.round(h*dpr)){ c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); }
+    ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle=pal.paper; ctx.fillRect(0,0,w,h);
+    const X=x=>(x-this.cx)*k+w/2, Y=y=>(y-this.cy)*k+h/2;
+    const vx0=this.cx-w/2/k, vx1=this.cx+w/2/k, vy0=this.cy-h/2/k, vy1=this.cy+h/2/k;
+    const vis=b=>!(b[2]<vx0||b[0]>vx1||b[3]<vy0||b[1]>vy1);
+    // quartieri
+    for(const pass of [0,1]) for(const p of G.polys){
+      if(!!p.z!==!!pass || !vis(p.box)) continue;
+      ctx.beginPath(); for(const r of p.rings){ ctx.moveTo(X(r[0]),Y(r[1])); for(let i=2;i<r.length;i+=2) ctx.lineTo(X(r[i]),Y(r[i+1])); ctx.closePath(); }
+      if(p.z){ ctx.fillStyle=(this.zoneFill && this.zoneFill(p.z,pal)) || pal.card; ctx.fill(); ctx.strokeStyle=pal.ink; ctx.lineWidth=this.zoneSel===p.z?3:1.3; ctx.stroke(); }
+      else { ctx.fillStyle=mix(pal.paper,pal.line,45); ctx.fill(); ctx.strokeStyle=pal.line; ctx.lineWidth=1; ctx.stroke(); }
+    }
+    // civici: ogni puntino è un portone, insieme disegnano le vie
+    const seen=[];
+    if(k>=0.1){
+      for(const s of G.streets) if(vis(s.box)) seen.push(s);
+      const d=k<0.3?1:k<0.8?1.6:k<2?2.6:4; ctx.fillStyle=mix(pal.paper,pal.muted,k<0.3?55:80);
+      for(const s of seen){ const p=s.pts; for(let i=0;i<p.length;i+=2){ if(p[i]<vx0||p[i]>vx1||p[i+1]<vy0||p[i+1]>vy1) continue; ctx.fillRect(X(p[i])-d/2,Y(p[i+1])-d/2,d,d); } }
+    }
+    if(k>=3.2){
+      ctx.font="500 9.5px 'JetBrains Mono',ui-monospace,monospace"; ctx.fillStyle=pal.muted; ctx.textAlign="left"; ctx.textBaseline="middle"; let n=0;
+      for(const s of seen){ const p=s.pts; for(let i=0;i<p.length && n<500;i+=2){ if(p[i]<vx0||p[i]>vx1||p[i+1]<vy0||p[i+1]>vy1) continue; ctx.fillText(s.civs[i/2].split(" ")[0],X(p[i])+4,Y(p[i+1])); n++; } }
+    }
+    // nomi
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.lineJoin="round";
+    const boxes=[]; const free=(x,y,hw,hh)=>{ for(const b of boxes) if(Math.abs(b[0]-x)<b[2]+hw && Math.abs(b[1]-y)<b[3]+hh) return false; boxes.push([x,y,hw,hh]); return true; };
+    if(k<0.45){
+      for(const p of G.polys){
+        if(!vis(p.box)) continue; const x=X(p.c[0]), y=Y(p.c[1]);
+        if(p.z){
+          const t=this.zoneText?this.zoneText(p.z):""; ctx.font="700 12.5px Archivo,system-ui,sans-serif"; const tw=ctx.measureText(p.n).width/2+4;
+          if(!free(x,y,tw,t?15:8)) continue;
+          ctx.strokeStyle=pal.card; ctx.lineWidth=3; ctx.fillStyle=pal.ink; ctx.strokeText(p.n,x,y-(t?7:0)); ctx.fillText(p.n,x,y-(t?7:0));
+          if(t){ ctx.font="700 11.5px 'JetBrains Mono',ui-monospace,monospace"; ctx.strokeText(t,x,y+8); ctx.fillText(t,x,y+8); }
+        } else if(k>=0.05){ ctx.font="500 10.5px Archivo,system-ui,sans-serif"; ctx.fillStyle=pal.muted; if(free(x,y,ctx.measureText(p.n).width/2+2,7)) ctx.fillText(p.n,x,y); }
+      }
+    } else {
+      const cand=[];
+      for(const s of seen){ const p=s.pts; let n=0,sx=0,sy=0; for(let i=0;i<p.length;i+=2){ if(p[i]<vx0||p[i]>vx1||p[i+1]<vy0||p[i+1]>vy1) continue; n++; sx+=p[i]; sy+=p[i+1]; } if(n>=(k<0.9?10:3)) cand.push([n,sx/n,sy/n,s]); }
+      cand.sort((a,b)=>b[0]-a[0]); ctx.font="600 11px Archivo,system-ui,sans-serif";
+      for(const [n,mx,my,s] of cand.slice(0,70)){
+        const x=X(mx), y=Y(my), tw=ctx.measureText(s.label).width/2, ca=Math.abs(Math.cos(s.ang)), sa=Math.abs(Math.sin(s.ang));
+        if(!free(x,y,tw*ca+7*sa+3,tw*sa+7*ca+3)) continue;
+        ctx.save(); ctx.translate(x,y); ctx.rotate(s.ang); ctx.strokeStyle=pal.paper; ctx.lineWidth=3.5; ctx.strokeText(s.label,0,0); ctx.fillStyle=pal.ink; ctx.fillText(s.label,0,0); ctx.restore();
+      }
+    }
+    // consegne
+    for(const m of this.markers){
+      const x=X(m.x), y=Y(m.y); if(x<-12||x>w+12||y<-12||y>h+12) continue; const sel=this.selKey===m.c.key;
+      ctx.beginPath(); ctx.arc(x,y,sel?10:7.5,0,6.3); ctx.fillStyle=m.c.tot===0?pal.tomato:mix(pal.card,pal.basil,m.c.avg<1?42:m.c.avg<2?70:100); ctx.fill();
+      ctx.lineWidth=sel?3:2; ctx.strokeStyle=sel?pal.ink:pal.card; ctx.stroke();
+    }
+  }
+}
+const mapViews=[];
+function redrawMaps(){ mapViews.forEach(v=>v.draw()); }
+try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redrawMaps); new MutationObserver(redrawMaps).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]}); }catch(_){ }
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(redrawMaps);
+
+let tips = [];          // tutte le consegne
+let geo = null;         // posizione dell'indirizzo che stai inserendo
+let db = null, downloads = null;
+let amount = null, meteo = null, lastAdded = null;
+
+/* ---------- stato salvataggio ---------- */
+function setStatus(msg){ const s=$("status"); if(!msg){s.hidden=true;return;} s.textContent=msg; s.hidden=false; }
+
+/* ---------- form ---------- */
+$("zona").innerHTML = '<option value="">Scegli la zona</option>' + ZONES.map(z=>`<option value="${z.id}">${esc(z.nome)}</option>`).join("");
+$("amounts").innerHTML = AMOUNTS.map(a=>`<button type="button" class="chip amount${a===0?" zero":""}" data-a="${a}" aria-pressed="false">${a===0?"0 €":eur(a).replace(",00","")}</button>`).join("")
+  + `<input type="number" class="other-amt" id="otherAmt" inputmode="decimal" step="0.1" min="0" placeholder="Altro €" aria-label="Altro importo">`;
+$("meteo").innerHTML = METEO.map(m=>`<button type="button" class="chip" data-m="${m.id}" aria-pressed="false">${m.n}</button>`).join("");
+$("data").value = ymd(new Date());
+
+function selectedDate(){ return $("data").value || ymd(new Date()); }
+function refreshDateLabel(){
+  const d = selectedDate(), today = ymd(new Date());
+  $("dateToggle").textContent = d===today ? "Data: oggi · cambia" : "Data: "+fmtDay(d)+" · cambia";
+  $("meteoLbl").textContent = d===today ? "Meteo di stasera" : "Meteo di quella sera";
+  const dayMeteo = tips.filter(t=>t.data===d && t.meteo).sort((a,b)=>b.ts-a.ts)[0];
+  const keep = meteo && meteo._day===d;
+  const pick = dayMeteo ? dayMeteo.meteo : keep ? meteo.id : null;
+  setMeteo(pick, d, !dayMeteo && keep && meteo.auto);
+  if(!pick) autoMeteo(d);
+}
+function setMeteo(id, day, auto){
+  meteo = id ? {id, _day:day, auto:!!auto} : null;
+  const base = day===ymd(new Date()) ? "Meteo di stasera" : "Meteo di quella sera";
+  $("meteoLbl").textContent = base + (id && auto ? " · preso da internet" : "");
+  document.querySelectorAll("#meteo .chip").forEach(b=>b.setAttribute("aria-pressed", String(!!id && b.dataset.m===id)));
+}
+function setAmount(a){
+  amount = a;
+  document.querySelectorAll("#amounts .chip").forEach(b=>b.setAttribute("aria-pressed", String(a!==null && Number(b.dataset.a)===a && $("otherAmt").value==="")));
+  validate();
+}
+function validate(){ $("saveBtn").disabled = !(db && $("via").value.trim() && amount!==null && !isNaN(amount)); }
+
+$("amounts").addEventListener("click", e=>{ const b=e.target.closest(".chip"); if(!b) return; $("otherAmt").value=""; setAmount(Number(b.dataset.a)); });
+$("otherAmt").addEventListener("input", e=>{ const v=parseFloat(String(e.target.value).replace(",", ".")); setAmount(isNaN(v)?null:v); });
+$("meteo").addEventListener("click", e=>{ const b=e.target.closest(".chip"); if(!b) return; const id=b.dataset.m; setMeteo(meteo&&meteo.id===id&&!meteo.auto?null:id, selectedDate(), false); });
+$("dateToggle").addEventListener("click", ()=>{ $("dateField").hidden=!$("dateField").hidden; });
+$("data").addEventListener("change", ()=>{ refreshDateLabel(); renderToday(); });
+["via","civico"].forEach(id=>$(id).addEventListener("input", validate));
+
+/* suggerimenti indirizzo */
+function clients(list){
+  const m = new Map();
+  for(const t of (list||tips)){
+    const k=addrKey(t); let c=m.get(k);
+    if(!c){ c={key:k, via:t.via, civico:t.civico||"", nome:"", zona:t.zona, n:0, tot:0, zeros:0, last:"", lastTs:0, lon:null, lat:null, geoTs:0}; m.set(k,c); }
+    c.n++; c.tot+=t.importo; if(t.importo===0) c.zeros++;
+    if(typeof t.lon==="number" && typeof t.lat==="number" && t.ts>=c.geoTs){ c.lon=t.lon; c.lat=t.lat; c.geoTs=t.ts; }
+    if(t.ts>c.lastTs){ c.lastTs=t.ts; c.last=t.data; c.via=t.via; c.zona=t.zona||c.zona; if(t.nome) c.nome=t.nome; }
+    else if(!c.nome && t.nome) c.nome=t.nome;
+  }
+  for(const c of m.values()) c.avg=c.tot/c.n;
+  return [...m.values()];
+}
+function zoneForVia(v){ const k=normVia(v); const t=tips.filter(x=>normVia(x.via)===k && x.zona).sort((a,b)=>b.ts-a.ts)[0]; return t?t.zona:""; }
+function showSugg(){
+  const q = normVia($("via").value), box=$("sugg");
+  if(q.length<2){ box.hidden=true; return; }
+  const tok = q.split(" ");
+  const cs = clients().filter(c=>normVia(c.via).includes(q) || normVia(c.nome).includes(q)).sort((a,b)=>b.n-a.n).slice(0,3).map(c=>({c}));
+  const ss = G.streets.filter(s=>tok.every(t=>s.key.includes(t)))
+    .sort((a,b)=>(b.key.includes(" "+q)-a.key.includes(" "+q)) || a.key.length-b.key.length).slice(0,6).map(s=>({s}));
+  const items = cs.concat(ss);
+  if(!items.length || (items.length===1 && items[0].s && items[0].s.label===$("via").value)){ box.hidden=true; return; }
+  box.innerHTML = items.map((it,i)=> it.c
+    ? `<button type="button" data-i="${i}"><span class="s-main">${esc(it.c.via)} ${esc(it.c.civico)}${it.c.nome?` · ${esc(it.c.nome)}`:""}</span><span class="s-sub num">${it.c.n}× · ${eur(it.c.avg)}</span></button>`
+    : `<button type="button" data-i="${i}"><span class="s-main">${esc(it.s.label)}</span><span class="s-sub">${it.s.civs.length} civici</span></button>`).join("");
+  box._cs = items; box.hidden=false;
+}
+let geoStreet=null;
+function setGeo(cls, txt, btn){ $("geo").className="geo "+cls; $("geoTxt").textContent=txt; $("geoBtn").hidden=!btn; $("geoBtn").textContent = btn||""; }
+function updateGeo(){
+  const via=$("via").value.trim(), civ=$("civico").value.trim();
+  const s=findStreet(via);
+  if(s!==geoStreet){ geoStreet=s; $("civList").innerHTML = s ? s.civs.slice(0,600).map(c=>`<option value="${esc(c)}">`).join("") : ""; }
+  geo=null;
+  if(!via){ setGeo("no",""); return; }
+  if(s && civ){
+    const f=findCivic(s,civ);
+    if(f){ geo={lon:f.lon, lat:f.lat, src:"elenco"}; if(f.zone && f.zone!=="altro") $("zona").value=f.zone; else if(!$("zona").value) $("zona").value="altro";
+      setGeo("ok", "Trovato sulla mappa · "+(ZBY[f.zone]?ZBY[f.zone].nome:"")+(f.exact?"":" · al civico più vicino in elenco, il "+f.civ), "Sposta"); return; }
+  }
+  const known=clients().find(c=>c.key===addrKey({via,civico:civ}) && c.lon!=null);
+  if(known){ geo={lon:known.lon, lat:known.lat, src:"cliente"}; setGeo("ok","Già sulla mappa da una consegna precedente","Sposta"); return; }
+  if(!MP){ setGeo("no",""); return; }
+  if(s && !civ) setGeo("no","Via trovata: scrivi il civico.");
+  else setGeo("no", s ? "Questo civico non è in elenco." : "Via non in elenco.", "Mettilo sulla mappa");
+}
+$("via").addEventListener("input", ()=>{ showSugg(); const z=zoneForVia($("via").value); if(z) $("zona").value=z; updateGeo(); });
+$("civico").addEventListener("input", updateGeo);
+
+/* posizione a mano: la mappa scorre sotto un segnaposto fisso */
+let pickView=null;
+$("geoBtn").addEventListener("click", ()=>{
+  if(!MP) return;
+  $("picker").hidden=false;
+  if(!pickView){ pickView=new MapView($("pickCanvas")); mapViews.push(pickView); }
+  if(geo){ const [x,y]=lonlatToM(geo.lon,geo.lat); pickView.cx=x; pickView.cy=y; pickView.k=3; }
+  else if(geoStreet){ const b=geoStreet.box; pickView.cx=(b[0]+b[2])/2; pickView.cy=(b[1]+b[3])/2; pickView.k=1.6; }
+  else pickView.fitZones();
+  pickView.draw();
+});
+$("pIn").onclick=()=>pickView.zoom(1.6); $("pOut").onclick=()=>pickView.zoom(1/1.6);
+$("pickCancel").onclick=()=>{ $("picker").hidden=true; };
+$("pickOk").onclick=()=>{
+  const [lon,lat]=mToLonLat(pickView.cx,pickView.cy); geo={lon,lat,src:"mano"};
+  const z=zoneAtM(pickView.cx,pickView.cy); if(z) $("zona").value=z;
+  setGeo("ok","Posizione messa a mano"+(z?" · "+ZBY[z].nome:""),"Sposta"); $("picker").hidden=true;
+};
+$("via").addEventListener("focus", showSugg);
+$("via").addEventListener("blur", ()=>setTimeout(()=>{$("sugg").hidden=true;},180));
+$("sugg").addEventListener("pointerdown", e=>e.preventDefault());
+$("sugg").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return; const it=$("sugg")._cs[Number(b.dataset.i)];
+  if(it.c){ const c=it.c; $("via").value=c.via; $("civico").value=c.civico; $("nome").value=c.nome; if(c.zona) $("zona").value=c.zona; }
+  else { $("via").value=it.s.label; const z=zoneForVia(it.s.label); if(z) $("zona").value=z; $("civico").focus(); }
+  $("sugg").hidden=true; updateGeo(); validate();
+});
+
+$("form").addEventListener("submit", async e=>{
+  e.preventDefault(); if($("saveBtn").disabled) return;
+  const rec = {
+    data: selectedDate(), ts: Date.now(),
+    via: geoStreet ? geoStreet.label : tidyVia($("via").value), civico: $("civico").value.trim(), nome: $("nome").value.trim(),
+    zona: $("zona").value || zoneForVia($("via").value) || "altro",
+    importo: Math.round(amount*100)/100, meteo: meteo ? meteo.id : ""
+  };
+  if(geo){ rec.lon=geo.lon; rec.lat=geo.lat; rec.pos=geo.src; }
+  $("saveBtn").disabled = true;
+  try{
+    const ref = await db.collection("mance").add(rec);
+    lastAdded = ref;
+    toast(`Salvata: ${eur(rec.importo)} · ${rec.via} ${rec.civico}`, true);
+    $("via").value=""; $("civico").value=""; $("nome").value=""; $("zona").value=""; $("otherAmt").value="";
+    setAmount(null); updateGeo();
+  }catch(err){
+    toast("Non salvata: la memoria del telefono è piena o bloccata.");
+    validate();
+  }
+});
+
+let toastTimer;
+function toast(msg, undo){
+  const t=$("toast"); t.innerHTML = `<span>${esc(msg)}</span>` + (undo?`<button type="button" id="undo">Annulla</button>`:"");
+  t.hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>{t.hidden=true;}, 5000);
+  if(undo) $("undo").onclick = async ()=>{ t.hidden=true; if(lastAdded){ try{ await lastAdded.delete(); toast("Mancia annullata"); }catch(_){ toast("Non riesco ad annullare, eliminala dall'Elenco."); } lastAdded=null; } };
+}
+
+/* ---------- calcoli ---------- */
+function stats(list){
+  const n=list.length, tot=list.reduce((s,t)=>s+t.importo,0), con=list.filter(t=>t.importo>0).length;
+  return {n, tot, avg:n?tot/n:0, con, pct:n?Math.round(con/n*100):0};
+}
+function groupBy(list, f){ const m=new Map(); for(const t of list){ const k=f(t); if(!m.has(k)) m.set(k,[]); m.get(k).push(t);} return m; }
+function fmtDay(s){ const d=parse(s); return GIORNI_L[(d.getDay()+6)%7]+" "+d.getDate()+" "+MESI[d.getMonth()]; }
+
+/* ---------- oggi ---------- */
+function renderToday(){
+  const d=selectedDate(), list=tips.filter(t=>t.data===d).sort((a,b)=>b.ts-a.ts);
+  $("todayTitle").textContent = d===ymd(new Date()) ? "Stasera" : fmtDay(d);
+  const s=stats(list); $("todayTot").textContent = list.length ? `${eur(s.tot)} · ${s.n} consegne` : "";
+  $("todayList").innerHTML = list.length ? list.map(itemHTML).join("") : `<div class="empty">${db?"Ancora nessuna consegna in questa data. La prima che salvi compare qui.":"Le consegne salvate compaiono qui."}</div>`;
+}
+function itemHTML(t){
+  return `<div class="item tap" data-id="${t.id}"><span class="t">${esc(t.via)} ${esc(t.civico)}</span><span class="a num${t.importo===0?" zero":""}">${t.importo===0?"0 €":eur(t.importo)}</span><span class="s">${[t.nome,ZBY[t.zona]?.nome,MBY[t.meteo]].filter(Boolean).map(esc).join(" · ")}</span></div>`;
+}
+
+/* elimina con conferma */
+document.addEventListener("click", e=>{
+  const it=e.target.closest(".item.tap"); if(!it || e.target.closest(".confirm")) return;
+  document.querySelectorAll(".confirm").forEach(c=>c.remove());
+  const c=document.createElement("div"); c.className="confirm";
+  c.innerHTML=`<button type="button" class="keep">Tieni</button><button type="button" class="del">Elimina</button>`;
+  it.appendChild(c);
+  c.querySelector(".keep").onclick=ev=>{ev.stopPropagation(); c.remove();};
+  c.querySelector(".del").onclick=async ev=>{ ev.stopPropagation(); try{ await db.doc("mance/"+it.dataset.id).delete(); toast("Consegna eliminata"); }catch(_){ toast("Non riesco a eliminarla, riprova."); } };
+});
+
+/* ---------- riepilogo ---------- */
+let sumMode="week", anchor=new Date();
+function periodRange(){
+  if(sumMode==="week"){ const s=mondayOf(anchor); return {start:s, end:addDays(s,6)}; }
+  const s=new Date(anchor.getFullYear(), anchor.getMonth(), 1); return {start:s, end:new Date(anchor.getFullYear(), anchor.getMonth()+1, 0)};
+}
+function periodTitle(r){
+  if(sumMode==="month") return MESI[r.start.getMonth()].replace(/^./,c=>c.toUpperCase())+" "+r.start.getFullYear();
+  const a=r.start, b=r.end;
+  return a.getMonth()===b.getMonth() ? `${a.getDate()}–${b.getDate()} ${MESI[b.getMonth()]}` : `${a.getDate()} ${MESI[a.getMonth()].slice(0,3)} – ${b.getDate()} ${MESI[b.getMonth()].slice(0,3)}`;
+}
+function inRange(r){ const a=ymd(r.start), b=ymd(r.end); return tips.filter(t=>t.data>=a && t.data<=b); }
+function barRows(rows){
+  const max=Math.max(...rows.map(r=>r.v),0.0001);
+  return rows.map(r=>`<div class="bar${r.v>0?"":" off"}"><span class="bl">${esc(r.l)}</span><span class="track"><span class="fill" style="width:${Math.max(0,r.v/max*100)}%"></span></span><span class="bv">${r.txt}</span></div>`).join("");
+}
+function renderSum(){
+  const r=periodRange(), list=inRange(r), s=stats(list);
+  $("pLabel").textContent = sumMode==="week"?"Settimana":"Mese";
+  $("pTitle").textContent = periodTitle(r);
+  $("kpis").innerHTML = [
+    ["main","Totale mance",eur(s.tot)],["","Consegne",s.n],["","Media a consegna",eur(s.avg)],["","Con mancia",s.n?s.pct+"%":"—"]
+  ].map(([c,l,v])=>`<div class="kpi ${c}"><span class="label">${l}</span><span class="num">${v}</span></div>`).join("");
+  let rows=[];
+  if(sumMode==="week"){
+    $("barsTitle").textContent="Giorno per giorno";
+    for(let i=0;i<7;i++){ const d=ymd(addDays(r.start,i)); const l=tips.filter(t=>t.data===d); const st=stats(l);
+      rows.push({l:GIORNI[i]+" "+addDays(r.start,i).getDate(), v:st.tot, txt:l.length?eur(st.tot):"—"}); }
+  } else {
+    $("barsTitle").textContent="Settimana per settimana";
+    let w=mondayOf(r.start);
+    while(w<=r.end){ const a=ymd(w<r.start?r.start:w), e=addDays(w,6), b=ymd(e>r.end?r.end:e);
+      const l=list.filter(t=>t.data>=a&&t.data<=b), st=stats(l);
+      rows.push({l:`${parse(a).getDate()}–${parse(b).getDate()}`, v:st.tot, txt:l.length?eur(st.tot):"—"}); w=addDays(w,7); }
+  }
+  $("bars").innerHTML = barRows(rows);
+  const zg=[...groupBy(list,t=>t.zona||"altro")].map(([k,l])=>{const st=stats(l);return {l:ZBY[k]?.nome||"Altra zona", v:st.tot, txt:eur(st.tot), n:st.n};}).sort((a,b)=>b.v-a.v);
+  $("zoneBars").innerHTML = zg.length ? barRows(zg) : `<div class="empty">Nessuna consegna in questo periodo.</div>`;
+  const mg=METEO.map(m=>{const l=list.filter(t=>t.meteo===m.id); const st=stats(l); return {l:m.n, v:st.avg, txt:l.length?eur(st.avg):"—"};}).filter(x=>x.txt!=="—");
+  $("meteoBars").innerHTML = mg.length ? barRows(mg) : `<div class="empty">Segna il meteo quando salvi una mancia e qui vedi se con la pioggia si prende di più.</div>`;
+}
+$("sumMode").addEventListener("click", e=>{ const b=e.target.closest("button"); if(!b) return; sumMode=b.dataset.m; anchor=new Date();
+  $("sumMode").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); renderSum(); });
+$("prevP").onclick=()=>{ anchor = sumMode==="week"?addDays(anchor,-7):new Date(anchor.getFullYear(),anchor.getMonth()-1,1); renderSum(); };
+$("nextP").onclick=()=>{ anchor = sumMode==="week"?addDays(anchor,7):new Date(anchor.getFullYear(),anchor.getMonth()+1,1); renderSum(); };
+
+/* ---------- zone ---------- */
+let zMetric="avg", zSel=null, zPeriod="all", mapView=null, mSel=null;
+function periodTips(){
+  if(zPeriod==="all") return tips;
+  const now=new Date(), s = zPeriod==="week" ? mondayOf(now) : new Date(now.getFullYear(),now.getMonth(),1);
+  const e = zPeriod==="week" ? addDays(s,6) : new Date(now.getFullYear(),now.getMonth()+1,0), a=ymd(s), b=ymd(e);
+  return tips.filter(t=>t.data>=a && t.data<=b);
+}
+function zoneStats(){ const g=groupBy(periodTips(),t=>t.zona||"altro"); const o={}; for(const z of ZONES){ o[z.id]=stats(g.get(z.id)||[]); } return o; }
+function renderZone(){
+  const zs=zoneStats(), vals=ZONES.filter(z=>z.id!=="altro").map(z=>zs[z.id][zMetric]), max=Math.max(...vals,0);
+  const cs=clients(periodTips());
+  if(!MP){ $("mapBox").hidden=true; $("mapMissing").hidden=false; }
+  else {
+    if(!mapView){
+      mapView=new MapView($("mapCanvas"), {
+        onMarker:c=>{ mSel = mSel===c.key?null:c.key; renderZone(); },
+        onZone:z=>{ if(mSel){ mSel=null; } else zSel = (!z || zSel===z) ? null : z; renderZone(); }
+      });
+      mapViews.push(mapView); mapView.fitZones();
+    }
+    mapView.zoneFill=(z,pal)=>{ const s=zs[z]; if(!s||!s.n) return null; if(s.tot===0) return pal.tomatoSoft; return mix(pal.card,pal.basil,max>0?8+30*(s[zMetric]/max):8); };
+    mapView.zoneText=z=>{ const s=zs[z]; return !s||!s.n ? "" : zMetric==="n" ? String(s.n) : eur(s[zMetric]); };
+    mapView.zoneSel=zSel; mapView.selKey=mSel;
+    mapView.markers=cs.filter(c=>c.lon!=null).map(c=>{ const [x,y]=lonlatToM(c.lon,c.lat); return {x,y,c}; });
+    mapView.draw();
+    const miss=cs.filter(c=>c.lon==null).length;
+    $("mapNote").textContent = !cs.length ? "Ancora nessuna consegna in questo periodo: i pallini compaiono appena salvi la prima."
+      : miss ? `${miss} ${miss===1?"indirizzo non ha":"indirizzi non hanno"} una posizione: contano nei totali di zona ma non hanno il pallino.` : "";
+  }
+  $("legend").innerHTML = `<span><i style="background:var(--tomato);border-radius:50%"></i>mai mancia</span><span><i style="background:color-mix(in srgb, var(--basil) 42%, var(--card));border-radius:50%"></i>meno di 1 €</span><span><i style="background:color-mix(in srgb, var(--basil) 70%, var(--card));border-radius:50%"></i>da 1 a 2 €</span><span><i style="background:var(--basil);border-radius:50%"></i>2 € o più</span><span>Zona più verde = rende di più</span>`;
+  const c=mSel && cs.find(x=>x.key===mSel), mi=$("mInfo");
+  if(!c){ mi.hidden=true; mSel=null; }
+  else { mi.hidden=false;
+    mi.innerHTML=`<div class="period"><h3>${esc(c.via)} ${esc(c.civico)}</h3><button type="button" class="more" id="mClose">Chiudi</button></div>
+      <div class="item" style="border:0;padding:0"><span class="t">${esc(c.nome||"Nome non segnato")}</span><span class="a num${c.tot===0?" zero":""}">${eur(c.avg)}</span><span class="s num">${esc(ZBY[c.zona]?.nome||"")} · ${c.n} ${c.n===1?"consegna":"consegne"} · totale ${eur(c.tot)} · ultima ${parse(c.last).getDate()}/${parse(c.last).getMonth()+1}</span></div>`;
+    $("mClose").onclick=()=>{ mSel=null; renderZone(); };
+  }
+  renderZoneDetail();
+}
+function renderZoneDetail(){
+  const pt=periodTips(), list = zSel ? pt.filter(t=>(t.zona||"altro")===zSel) : pt;
+  const vie=[...groupBy(list,t=>normVia(t.via))].map(([k,l])=>{const st=stats(l); const last=l.sort((a,b)=>b.ts-a.ts)[0]; return {via:last.via, zona:last.zona, ...st};});
+  const title = zSel ? `Vie di ${ZBY[zSel].nome}` : "Tutte le vie";
+  if(!vie.length){ $("zDetail").innerHTML=`<h3>${esc(title)}</h3><div class="empty">Ancora nessuna consegna${zSel?" in questa zona":""}.</div>`; return; }
+  const top=vie.filter(v=>v.tot>0).sort((a,b)=>b.avg-a.avg||b.n-a.n).slice(0,8);
+  const zero=vie.filter(v=>v.tot===0).sort((a,b)=>b.n-a.n);
+  const row = v => `<div class="item"><span class="t">${esc(v.via)}${!zSel&&ZBY[v.zona]?` <span class="tag" style="background:var(--line);color:var(--muted)">${esc(ZBY[v.zona].nome)}</span>`:""}</span><span class="a num${v.tot===0?" zero":""}">${eur(v.avg)}</span><span class="s num">${v.n} consegne · totale ${eur(v.tot)}</span></div>`;
+  $("zDetail").innerHTML = `<div class="period" style="justify-content:space-between"><h3>${esc(title)}</h3>${zSel?`<button type="button" class="more" id="zAll">Mostra tutte</button>`:""}</div>
+    <span class="label">Le più generose · media a consegna</span><div class="list">${top.map(row).join("")||'<div class="empty">Nessuna via con mance.</div>'}</div>
+    <span class="label" style="margin-top:6px">Dove non danno niente</span><div class="list">${zero.map(row).join("")||'<div class="empty">Per ora, ovunque hai preso almeno qualcosa.</div>'}</div>`;
+  const za=$("zAll"); if(za) za.onclick=()=>{ zSel=null; renderZone(); };
+}
+$("zPeriod").addEventListener("click", e=>{ const b=e.target.closest("button"); if(!b) return; zPeriod=b.dataset.k; $("zPeriod").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); renderZone(); });
+$("zIn").onclick=()=>mapView&&mapView.zoom(1.6); $("zOut").onclick=()=>mapView&&mapView.zoom(1/1.6); $("zFit").onclick=()=>mapView&&mapView.fitZones();
+$("zMetric").addEventListener("click", e=>{ const b=e.target.closest("button"); if(!b) return; zMetric=b.dataset.k; $("zMetric").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); renderZone(); });
+
+/* ---------- clienti ---------- */
+let cliSort="n";
+function renderCli(){
+  const q=normVia($("cliSearch").value);
+  let cs=clients().filter(c=>!q || normVia(c.via+" "+c.civico+" "+c.nome).includes(q));
+  if(cliSort==="n") cs.sort((a,b)=>b.n-a.n||b.avg-a.avg);
+  if(cliSort==="avg") cs=cs.filter(c=>c.tot>0).sort((a,b)=>b.avg-a.avg||b.n-a.n);
+  if(cliSort==="zero") cs=cs.filter(c=>c.tot===0).sort((a,b)=>b.n-a.n);
+  $("cliList").innerHTML = cs.length ? cs.map(c=>`<div class="item"><span class="t">${esc(c.via)} ${esc(c.civico)}${c.n>=3?'<span class="tag">Abituale</span>':""}${c.tot===0&&c.n>=2?'<span class="tag red">Mai</span>':""}</span><span class="a num${c.tot===0?" zero":""}">${eur(c.avg)}</span><span class="s">${[c.nome,ZBY[c.zona]?.nome].filter(Boolean).map(esc).join(" · ")}<span class="num"> · ${c.n}× · ultima ${parse(c.last).getDate()}/${parse(c.last).getMonth()+1}</span></span></div>`).join("")
+    : `<div class="empty">${tips.length?"Nessun cliente corrisponde.":"I clienti si formano da soli man mano che salvi le consegne."}</div>`;
+}
+$("cliSearch").addEventListener("input", renderCli);
+$("cliSort").addEventListener("click", e=>{ const b=e.target.closest("button"); if(!b) return; cliSort=b.dataset.k; $("cliSort").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); renderCli(); });
+
+/* ---------- elenco ---------- */
+function renderAll(){
+  if(!tips.length){ $("allList").innerHTML=`<div class="empty">Nessuna consegna salvata.</div>`; return; }
+  const g=[...groupBy([...tips].sort((a,b)=>b.data.localeCompare(a.data)||b.ts-a.ts), t=>t.data)];
+  $("allList").innerHTML = g.map(([d,l])=>{ const s=stats(l); return `<div class="dayhead"><h3>${fmtDay(d).replace(/^./,c=>c.toUpperCase())}</h3><span class="num">${eur(s.tot)}</span></div><div class="list">${l.map(itemHTML).join("")}</div>`; }).join("");
+}
+
+/* ---------- PDF ---------- */
+function buildPdf(){
+  const r=periodRange(), list=inRange(r).sort((a,b)=>a.data.localeCompare(b.data)||a.ts-b.ts), s=stats(list);
+  const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:"mm",format:"a4"});
+  const W=210, M=16; let y=0;
+  const ink=[22,32,26], muted=[91,104,96], tomato=[201,58,38], basil=[43,122,75], line=[220,226,221];
+  const need = h => { if(y+h>282){ doc.addPage(); y=18; } };
+  doc.setFillColor(...ink); doc.rect(0,0,W,30,"F");
+  doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(20);
+  doc.text("Mance", M, 15);
+  doc.setFont("helvetica","normal"); doc.setFontSize(10);
+  doc.text("All'Oca di Pulcinella · Torino", M, 22);
+  doc.setFont("helvetica","bold"); doc.setFontSize(12);
+  doc.text((sumMode==="week"?"Settimana ":"")+periodTitle(r)+(sumMode==="week"?" "+r.end.getFullYear():""), W-M, 15, {align:"right"});
+  doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+  doc.text("Creato il "+new Date().toLocaleDateString("it-IT"), W-M, 22, {align:"right"});
+  y=42;
+  const k=[["Totale mance",eur(s.tot)],["Consegne",String(s.n)],["Media a consegna",eur(s.avg)],["Con mancia",s.n?s.pct+"%":"—"]];
+  const kw=(W-2*M)/4;
+  k.forEach(([l,v],i)=>{ const x=M+i*kw; doc.setDrawColor(...ink); doc.setLineWidth(.6); doc.line(x,y,x+kw-4,y);
+    doc.setTextColor(...muted); doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.text(l.toUpperCase(), x, y+5);
+    doc.setTextColor(...(i===0?basil:ink)); doc.setFontSize(15); doc.text(v, x, y+13); });
+  y+=24;
+  const section = t => { need(16); doc.setTextColor(...ink); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text(t, M, y); y+=4; doc.setDrawColor(...line); doc.setLineWidth(.3); doc.line(M,y,W-M,y); y+=6; };
+  const table = (cols, rows) => {
+    doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.setTextColor(...muted);
+    need(8); cols.forEach(c=>doc.text(c.h, c.x, y, {align:c.a||"left"})); y+=5;
+    doc.setFont("helvetica","normal");
+    rows.forEach(rw=>{ need(6); cols.forEach((c,i)=>{ const v=String(rw[i]??""); doc.setTextColor(...(c.red && rw._zero ? tomato : ink)); doc.text(c.max? doc.splitTextToSize(v,c.max)[0] : v, c.x, y, {align:c.a||"left"}); }); y+=5.4; });
+    y+=4;
+  };
+  // per giorno / settimana
+  if(sumMode==="week"){
+    section("Giorno per giorno");
+    const rows=[]; for(let i=0;i<7;i++){ const d=ymd(addDays(r.start,i)); const l=list.filter(t=>t.data===d); if(!l.length) continue; const st=stats(l);
+      const mt=[...new Set(l.map(t=>MBY[t.meteo]).filter(Boolean))].join(", ");
+      rows.push([fmtDay(d), st.n, mt||"—", eur(st.avg), eur(st.tot)]); }
+    if(rows.length) table([{h:"Giorno",x:M},{h:"Consegne",x:92,a:"right"},{h:"Meteo",x:98},{h:"Media",x:160,a:"right"},{h:"Totale",x:W-M,a:"right"}], rows);
+  } else {
+    section("Settimana per settimana");
+    const rows=[]; let w=mondayOf(r.start);
+    while(w<=r.end){ const a=ymd(w<r.start?r.start:w), e=addDays(w,6), b=ymd(e>r.end?r.end:e); const l=list.filter(t=>t.data>=a&&t.data<=b); const st=stats(l);
+      rows.push([`${parse(a).getDate()}–${parse(b).getDate()} ${MESI[parse(b).getMonth()]}`, st.n, eur(st.avg), eur(st.tot)]); w=addDays(w,7); }
+    table([{h:"Settimana",x:M},{h:"Consegne",x:110,a:"right"},{h:"Media",x:150,a:"right"},{h:"Totale",x:W-M,a:"right"}], rows);
+  }
+  if(list.length){
+    section("Per zona");
+    const zr=[...groupBy(list,t=>t.zona||"altro")].map(([z,l])=>{const st=stats(l); return [ZBY[z]?.nome||"Altra zona", st.n, eur(st.avg), eur(st.tot), st.tot];}).sort((a,b)=>b[4]-a[4]);
+    table([{h:"Zona",x:M},{h:"Consegne",x:110,a:"right"},{h:"Media",x:150,a:"right"},{h:"Totale",x:W-M,a:"right"}], zr);
+    const mr=METEO.map(m=>{const l=list.filter(t=>t.meteo===m.id); if(!l.length) return null; const st=stats(l); return [m.n, st.n, eur(st.avg)];}).filter(Boolean);
+    if(mr.length){ section("Con che tempo"); table([{h:"Meteo",x:M},{h:"Consegne",x:110,a:"right"},{h:"Media a consegna",x:W-M,a:"right"}], mr); }
+    const zero=[...groupBy(list,addrKey)].map(([k,l])=>l).filter(l=>stats(l).tot===0);
+    if(zero.length){ section("Nessuna mancia"); table([{h:"Indirizzo",x:M,max:100},{h:"Nome",x:120,max:50},{h:"Volte",x:W-M,a:"right"}], zero.map(l=>{const t=l[l.length-1]; return [t.via+" "+t.civico, t.nome||"—", l.length];})); }
+    section("Tutte le consegne");
+    table([{h:"Data",x:M},{h:"Indirizzo",x:36,max:70},{h:"Nome",x:108,max:34},{h:"Zona",x:144,max:30},{h:"Mancia",x:W-M,a:"right",red:true}],
+      list.map(t=>{ const d=parse(t.data); const rw=[`${GIORNI[(d.getDay()+6)%7]} ${d.getDate()}/${d.getMonth()+1}`, t.via+" "+t.civico, t.nome||"", ZBY[t.zona]?.nome||"", t.importo===0?"0 €":eur(t.importo)]; rw._zero=t.importo===0; return rw; }));
+  } else {
+    doc.setTextColor(...muted); doc.setFontSize(10); doc.text("Nessuna consegna registrata in questo periodo.", M, y);
+  }
+  const pages=doc.getNumberOfPages(); for(let i=1;i<=pages;i++){ doc.setPage(i); doc.setFontSize(8); doc.setTextColor(...muted); doc.text(`${i} / ${pages}`, W-M, 290, {align:"right"}); }
+  const name = sumMode==="week" ? `mance-settimana-${ymd(r.start)}.pdf` : `mance-${MESI[r.start.getMonth()]}-${r.start.getFullYear()}.pdf`;
+  return {blob: doc.output("blob"), name};
+}
+$("pdfBtn").addEventListener("click", async ()=>{
+  if(!window.jspdf){ toast("Il generatore PDF non si è caricato. Ricarica la pagina."); return; }
+  try{ const {blob,name}=buildPdf(); await downloads.save({filename:name, data:blob}); }
+  catch(err){ if(err && err.code==="declined") return; toast("PDF non scaricato: "+(err&&err.message?err.message:"riprova.")); }
+});
+
+/* ---------- CSV per My Maps ---------- */
+function fascia(avg,tot){ if(tot===0) return "Mai mancia"; if(avg<1) return "Meno di 1 €"; if(avg<2) return "Da 1 a 2 €"; return "2 € o più"; }
+$("csvBtn").addEventListener("click", async ()=>{
+  const cs=clients(); if(!cs.length){ toast("Salva qualche consegna prima di esportare."); return; }
+  const q = v => '"'+String(v??"").replace(/"/g,'""')+'"';
+  const head=["Indirizzo","Nome","Zona","Consegne","Totale mance","Media","Fascia","Ultima consegna"];
+  const rows=cs.map(c=>{ const z=ZBY[c.zona]||ZBY.altro; return [`${c.via} ${c.civico}, ${z.comune}, TO, Italia`, c.nome, z.nome, c.n, c.tot.toFixed(2).replace(".",","), c.avg.toFixed(2).replace(".",","), fascia(c.avg,c.tot), c.last].map(q).join(","); });
+  try{ await downloads.save({filename:`mance-indirizzi-${ymd(new Date())}.csv`, data:"﻿"+[head.map(q).join(","),...rows].join("\n")}); }
+  catch(err){ if(err && err.code==="declined") return; toast("File non scaricato: "+(err&&err.message?err.message:"riprova.")); }
+});
+
+/* ---------- navigazione ---------- */
+const VIEWS=["add","sum","zone","cli","list"];
+function show(v){
+  VIEWS.forEach(x=>{ $("v-"+x).hidden = x!==v; });
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected", String(t.dataset.v===v)));
+  window.scrollTo(0,0); renderView(v);
+}
+function current(){ return VIEWS.find(x=>!$("v-"+x).hidden) || "add"; }
+function renderView(v){ ({add:renderToday, sum:renderSum, zone:renderZone, cli:renderCli, list:renderAll})[v](); }
+document.querySelector(".tabs").addEventListener("click", e=>{ const t=e.target.closest(".tab"); if(t) show(t.dataset.v); });
+
+function renderAllViews(){
+  const w=inRange({start:mondayOf(new Date()), end:addDays(mondayOf(new Date()),6)});
+  $("topWeek").textContent = eur(stats(w).tot);
+  renderView(current());
+}
+
+/* ---------- avvio ---------- */
+/* ---------- archivio sul telefono ---------- */
+const STORE_KEY = "mance-oca-pulcinella-v1";
+function loadTips(){ try{ const a=JSON.parse(localStorage.getItem(STORE_KEY)||"[]"); return Array.isArray(a)?a.filter(t=>t && t.id && t.data && typeof t.importo==="number"):[]; }catch(_){ return []; } }
+function persist(){ localStorage.setItem(STORE_KEY, JSON.stringify(tips)); refreshDateLabel(); renderAllViews(); }
+const newId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function removeTip(id){ const before=tips; tips=tips.filter(t=>t.id!==id); try{ persist(); }catch(e){ tips=before; throw e; } }
+db = {
+  collection: () => ({ add: async rec => { const id=newId(); tips.push({id, ...rec}); try{ persist(); }catch(e){ tips=tips.filter(t=>t.id!==id); throw e; } return {delete: async()=>removeTip(id)}; } }),
+  doc: path => ({ delete: async()=>removeTip(path.split("/").pop()) })
+};
+downloads = { save: async ({filename, data}) => {
+  const blob = data instanceof Blob ? data : new Blob([data], {type: filename.endsWith(".csv")?"text/csv":"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000); return {status:"saved"};
+}};
+
+/* ---------- meteo automatico (Open-Meteo, Torino sud-ovest, ore 19-22) ---------- */
+const meteoCache = {};
+function wmo(c){ if([71,73,75,77,85,86].includes(c)) return "neve"; if((c>=51&&c<=67)||(c>=80&&c<=82)||c>=95) return "pioggia"; if(c===45||c===48) return "nebbia"; if(c>=2) return "nuvoloso"; return "sereno"; }
+const ORD = ["sereno","nuvoloso","nebbia","pioggia","neve"];
+async function fetchMeteo(day){
+  if(day in meteoCache) return meteoCache[day];
+  const today=ymd(new Date()); if(day>today) return null;
+  const diff=(parse(today)-parse(day))/864e5;
+  const base = diff<80 ? "https://api.open-meteo.com/v1/forecast" : "https://archive-api.open-meteo.com/v1/archive";
+  try{
+    const r=await fetch(`${base}?latitude=45.04&longitude=7.63&hourly=weather_code&timezone=Europe%2FRome&start_date=${day}&end_date=${day}`);
+    if(!r.ok) return null;
+    const j=await r.json(); const codes=((j.hourly&&j.hourly.weather_code)||[]).slice(19,23).filter(c=>typeof c==="number");
+    if(!codes.length) return null;
+    const id=codes.map(wmo).sort((a,b)=>ORD.indexOf(b)-ORD.indexOf(a))[0];
+    meteoCache[day]=id; return id;
+  }catch(_){ return null; }
+}
+async function autoMeteo(day){
+  const id=await fetchMeteo(day);
+  if(id && selectedDate()===day && (!meteo || meteo.auto)) setMeteo(id, day, true);
+}
+async function fillMissingMeteo(){
+  const days=[...new Set(tips.filter(t=>!t.meteo).map(t=>t.data))];
+  let changed=false;
+  for(const d of days){ const id=await fetchMeteo(d); if(!id) continue; tips.forEach(t=>{ if(t.data===d && !t.meteo){ t.meteo=id; t.meteoAuto=true; changed=true; } }); }
+  if(changed){ try{ persist(); }catch(_){ } }
+}
+window.addEventListener("online", fillMissingMeteo);
+
+/* ---------- backup ---------- */
+function backupInfo(){ let last=null; try{ last=localStorage.getItem(STORE_KEY+"-backup"); }catch(_){ } $("bkInfo").textContent = last ? "Ultimo backup: "+new Date(Number(last)).toLocaleDateString("it-IT") : "Nessun backup ancora."; }
+$("bkOut").addEventListener("click", async ()=>{
+  if(!tips.length){ toast("Non ci sono ancora mance da salvare."); return; }
+  await downloads.save({filename:`mance-backup-${ymd(new Date())}.json`, data:JSON.stringify({app:"mance-oca-pulcinella", versione:1, creato:new Date().toISOString(), mance:tips}, null, 1)});
+  try{ localStorage.setItem(STORE_KEY+"-backup", String(Date.now())); }catch(_){ } backupInfo();
+});
+$("bkIn").addEventListener("change", async e=>{
+  const f=e.target.files && e.target.files[0]; e.target.value=""; if(!f) return;
+  try{
+    const j=JSON.parse(await f.text()); const list=Array.isArray(j)?j:j.mance;
+    if(!Array.isArray(list)) throw new Error();
+    const have=new Set(tips.map(t=>t.id)); let n=0;
+    for(const t of list){ if(!t || !t.data || typeof t.importo!=="number") continue; const r={...t, id:t.id||newId()}; if(have.has(r.id)) continue; tips.push(r); have.add(r.id); n++; }
+    persist(); toast(n ? `Ripristinate ${n} mance` : "Erano già tutte presenti");
+  }catch(_){ toast("Questo file non è un backup delle mance."); }
+});
+
+/* ---------- installazione ---------- */
+let installEvt=null;
+window.addEventListener("beforeinstallprompt", e=>{ e.preventDefault(); installEvt=e; $("installBtn").hidden=false; });
+window.addEventListener("appinstalled", ()=>{ $("installBtn").hidden=true; toast("App installata: la trovi tra le tue app"); });
+$("installBtn").addEventListener("click", async ()=>{ if(!installEvt) return; installEvt.prompt(); try{ await installEvt.userChoice; }catch(_){ } installEvt=null; $("installBtn").hidden=true; });
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(_){ }
+
+try{ localStorage.setItem(STORE_KEY+"-t","1"); localStorage.removeItem(STORE_KEY+"-t"); }
+catch(_){ setStatus("Il telefono non lascia salvare dati a questa pagina. Non usare la navigazione in incognito."); db=null; }
+tips = loadTips();
+refreshDateLabel(); renderAllViews(); validate(); backupInfo();
+fillMissingMeteo();
+})();
+</script>
+</body>
+</html>
